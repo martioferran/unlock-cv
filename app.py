@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template, redirect
 from anthropic import Anthropic
 from cv_generator import generate_cv_docx
 import stripe
@@ -43,6 +43,12 @@ MODEL_FINAL = "claude-opus-4-6"
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Force HTTPS in production
+@app.before_request
+def force_https():
+    if request.headers.get('X-Forwarded-Proto', 'http') == 'http' and not request.host.startswith('127.0.0.1') and not request.host.startswith('localhost'):
+        return redirect(request.url.replace('http://', 'https://'), code=301)
 
 # In-memory session store
 sessions = {}
