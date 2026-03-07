@@ -335,7 +335,7 @@
       <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">Analyze &amp; Start →</button></div>
     </div>
 
-    <!-- Progress -->
+    <!-- Progress / Loading + Summary combined -->
     <div class="panel" id="panel-progress">
       <div class="progress-transition">
         <div style="font-size:32px; margin-bottom:8px;" id="progress-icon">📊</div>
@@ -344,18 +344,11 @@
         <div style="display:flex; justify-content:center; margin:20px 0;" id="progress-spinner"><div class="spinner" style="width:24px; height:24px;"></div></div>
         <div class="progress-stats" id="progress-stats" style="display:none;"></div>
       </div>
-    </div>
-
-    <!-- Summary -->
-    <div class="panel" id="panel-summary">
-      <div class="round-header">
-        <span class="round-number" id="summary-round-label">Round 1 of 3</span>
-        <span class="round-focus" id="summary-round-focus">Addressing critical gaps</span>
-      </div>
-      <div class="summary-bullets" id="summary-bullets"></div>
-      <div id="summary-collapsibles"></div>
-      <div class="actions" style="justify-content:center;">
-        <button class="btn btn-primary" onclick="goToQuestions()">Continue to questions →</button>
+      <div id="progress-summary" style="display:none; text-align:left; margin-top:20px;">
+        <div class="summary-bullets" id="progress-bullets"></div>
+        <div class="actions" style="justify-content:center; margin-top:20px;">
+          <button class="btn btn-primary" id="btn-continue" onclick="goToQuestions()">Continue to next round →</button>
+        </div>
       </div>
     </div>
 
@@ -476,35 +469,36 @@
     function toggleCollapsible(id) { document.getElementById(id).classList.toggle('open'); }
     function countGaps(a) { if(!a||typeof a==='string') return {gaps:0,strengths:0}; return {gaps:(a.must_have_gaps?.length||0)+(a.keyword_gaps?.length||0)+(a.quantification_gaps?.length||0), strengths:a.strengths?.length||0}; }
 
-    function renderSummary(data) {
-      const a = data.analysis, round = data.round;
-      document.getElementById('summary-round-label').textContent = `Round ${round} of 3`;
-      document.getElementById('summary-round-focus').textContent = ROUND_FOCUS[round] || '';
-
-      // Summary as bullet points
-      const bulletsEl = document.getElementById('summary-bullets');
-      if (Array.isArray(a?.summary)) {
-        bulletsEl.innerHTML = a.summary.map(b => `<div class="summary-bullet">${escapeHtml(b)}</div>`).join('');
-      } else if (typeof a === 'string') {
-        bulletsEl.innerHTML = `<div class="summary-bullet">${escapeHtml(a)}</div>`;
-      } else if (a?.summary) {
-        // Fallback: split paragraph into sentences as bullets
-        const sentences = String(a.summary).split(/(?<=\.)\s+/).filter(s => s.length > 5);
-        bulletsEl.innerHTML = sentences.map(s => `<div class="summary-bullet">${escapeHtml(s)}</div>`).join('');
+    function renderProgressBullets(analysis) {
+      const el = document.getElementById('progress-bullets');
+      if (Array.isArray(analysis?.summary)) {
+        el.innerHTML = analysis.summary.map(b => `<div class="summary-bullet">${escapeHtml(b)}</div>`).join('');
+      } else if (typeof analysis === 'string') {
+        el.innerHTML = `<div class="summary-bullet">${escapeHtml(analysis)}</div>`;
+      } else if (analysis?.summary) {
+        const sentences = String(analysis.summary).split(/(?<=\.)\s+/).filter(s => s.length > 5);
+        el.innerHTML = sentences.map(s => `<div class="summary-bullet">${escapeHtml(s)}</div>`).join('');
       }
+    }
 
-      // Collapsibles
-      const container = document.getElementById('summary-collapsibles');
-      container.innerHTML = '';
-      if (typeof a === 'object') {
-        [{key:'must_have_gaps',title:'Must-Have Gaps',cls:'gaps',tg:'tag-gap'},{key:'keyword_gaps',title:'Keyword Gaps',cls:'keywords',tg:'tag-keyword'},{key:'quantification_gaps',title:'Needs Numbers',cls:'numbers',tg:'tag-number'},{key:'strengths',title:'Strengths',cls:'good',tg:'tag-good'}].forEach((sec,idx) => {
-          const items = a[sec.key]; if(!items||!items.length) return;
-          const id = `col-${idx}`;
-          const div = document.createElement('div'); div.className='collapsible'; div.id=id;
-          div.innerHTML = `<div class="collapsible-header" onclick="toggleCollapsible('${id}')"><div class="collapsible-title ${sec.cls}">${sec.title}<span class="collapsible-count">${items.length}</span></div><span class="collapsible-arrow">▸</span></div><div class="collapsible-body"><div class="collapsible-tags">${items.map(i=>`<span class="${sec.tg}">${escapeHtml(i)}</span>`).join('')}</div></div>`;
-          container.appendChild(div);
-        });
-      }
+    function showProgressWithSummary(data) {
+      showMiniHeader();
+      setStep(data.round);
+      renderProgressBullets(data.analysis);
+      document.getElementById('progress-summary').style.display = 'block';
+      document.getElementById('btn-continue').textContent = `Continue to round ${data.round} →`;
+      pendingRoundData = data;
+    }
+
+    function goToQuestions() {
+      if (!pendingRoundData) return;
+      const d = pendingRoundData;
+      document.getElementById('round-label').textContent = `Round ${d.round} of 3`;
+      document.getElementById('round-focus').textContent = ROUND_FOCUS[d.round] || '';
+      renderQuestions(d.questions, d.round);
+      document.getElementById('progress-summary').style.display = 'none';
+      showPanel('round');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function renderQuestions(questions, round) {
@@ -519,9 +513,6 @@
       checkAllAnswersFilled();
     }
 
-    function showSummary(data) { showMiniHeader(); setStep(data.round); renderSummary(data); pendingRoundData=data; showPanel('summary'); window.scrollTo({top:0,behavior:'smooth'}); }
-    function goToQuestions() { if(!pendingRoundData) return; const d=pendingRoundData; document.getElementById('round-label').textContent=`Round ${d.round} of 3`; document.getElementById('round-focus').textContent=ROUND_FOCUS[d.round]||''; renderQuestions(d.questions,d.round); showPanel('round'); window.scrollTo({top:0,behavior:'smooth'}); }
-
     async function startAnalysis() {
       const cvFile=fileInput.files[0], jd=document.getElementById('jd-input').value.trim();
       if(!cvFile){alert('Please upload your CV as a PDF file.');return;} if(!cvFile.name.toLowerCase().endsWith('.pdf')){alert('Please upload a PDF file.');return;} if(!jd){alert('Please paste the job description.');return;}
@@ -534,7 +525,10 @@
         sessionId=data.session_id; currentRound=1; prevAnalysis=data.analysis;
         document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='Analysis complete';
         const gaps=countGaps(data.analysis); document.getElementById('progress-msg').textContent=`Found ${gaps.gaps} gap${gaps.gaps!==1?'s':''} to address and ${gaps.strengths} strength${gaps.strengths!==1?'s':''}.`;
-        setTimeout(()=>{showSummary(data);},1500);
+        renderProgressBullets(data.analysis);
+        document.getElementById('progress-summary').style.display='block';
+        document.getElementById('btn-continue').textContent='Continue to round 1 →';
+        pendingRoundData = data;
       } catch(err){alert('Connection error.');document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');}
     }
 
@@ -558,7 +552,7 @@
           document.getElementById('progress-stats').style.display='flex';
           document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num green">${closed}</div><div class="stat-label">Gaps closed</div></div><div class="progress-stat"><div class="stat-num amber">${curr.gaps}</div><div class="stat-label">Remaining</div></div><div class="progress-stat"><div class="stat-num green">${curr.strengths}</div><div class="stat-label">Strengths</div></div>`;
           prevAnalysis=data.analysis; currentRound=data.round;
-          setTimeout(()=>{showSummary(data);},2500);
+          setTimeout(()=>{showProgressWithSummary(data);},2500);
         }
       } catch(err){alert('Connection error.');showPanel('round');document.getElementById('btn-submit').disabled=false;}
     }
@@ -597,7 +591,7 @@
     async function retryNewRole() {
       const jd=document.getElementById('retry-jd').value.trim(); if(!jd){alert('Please paste a job description.');return;}
       document.getElementById('loading-retry').classList.add('show');
-      try{const res=await fetch('/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,jd})}); const data=await res.json(); document.getElementById('loading-retry').classList.remove('show'); if(data.error){alert(data.error);return;} sessionId=data.session_id;currentRound=1;prevAnalysis=data.analysis;document.getElementById('retry-jd').value='';showSummary(data);}catch(err){alert('Connection error.');document.getElementById('loading-retry').classList.remove('show');}
+      try{const res=await fetch('/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,jd})}); const data=await res.json(); document.getElementById('loading-retry').classList.remove('show'); if(data.error){alert(data.error);return;} sessionId=data.session_id;currentRound=1;prevAnalysis=data.analysis;document.getElementById('retry-jd').value='';showProgressWithSummary(data);}catch(err){alert('Connection error.');document.getElementById('loading-retry').classList.remove('show');}
     }
 
     async function payAndDownload() {
