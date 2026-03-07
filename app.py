@@ -736,14 +736,14 @@ def preview_tailored(sid):
         return jsonify({"error": "Tailored CV not found."}), 404
     pdf_path = sessions[sid]["pdf_path"]
     img_path = os.path.join(sessions[sid]["output_dir"], "tailored_preview.png")
-    if not os.path.exists(img_path):
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                page = pdf.pages[0]
-                img = page.to_image(resolution=120)
-                img.save(img_path)
-        except Exception as e:
-            return jsonify({"error": f"Preview failed: {str(e)}"}), 500
+    # Always regenerate to ensure latest version
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            page = pdf.pages[0]
+            img = page.to_image(resolution=120)
+            img.save(img_path)
+    except Exception as e:
+        return jsonify({"error": f"Preview failed: {str(e)}"}), 500
     return send_file(img_path, mimetype="image/png")
 
 

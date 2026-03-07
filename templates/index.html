@@ -364,30 +364,17 @@
 
     <!-- Final -->
     <div class="panel" id="panel-final">
-      <div class="final-message">
-        <div class="final-icon"><span>✓</span></div>
-        <h2>Your tailored CV is ready</h2>
+      <div style="text-align:center; padding:24px 0 8px;">
+        <h2 style="font-size:26px; font-weight:700;">Your tailored CV is ready</h2>
+        <p style="font-size:14px; color:var(--text-muted); margin-top:6px;">Swipe to compare before and after</p>
       </div>
 
-      <div class="keyword-scores" id="keyword-scores" style="display:none;">
-        <div class="score-card"><div class="score-label">Original CV</div><div class="score-value before" id="score-before">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
-        <div class="score-arrow">→</div>
-        <div class="score-card"><div class="score-label">Tailored CV</div><div class="score-value after" id="score-after">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
-      </div>
-
-      <div class="actions cta-download">
-        <button class="btn btn-download" onclick="payAndDownload()" style="font-size:16px; padding:16px 44px;"><span>↓ Download for €3.99</span></button>
-        <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
-      </div>
-
+      <!-- Comparison images first -->
       <div class="comparison" id="comparison-section" style="display:none;">
-        <h3>Before &amp; After</h3>
-        <!-- Desktop: side by side -->
         <div class="comparison-frames">
           <div class="comparison-col"><div class="comp-label orig">Original</div><img id="preview-original" alt="Original CV" draggable="false" oncontextmenu="return false;"></div>
           <div class="comparison-col"><div class="comp-label new">Tailored</div><img id="preview-tailored" alt="Tailored CV" draggable="false" oncontextmenu="return false;"></div>
         </div>
-        <!-- Mobile: swipeable -->
         <div class="comparison-swipe" id="comparison-swipe">
           <div class="comparison-slide"><div class="comp-label orig">Original</div><img id="preview-original-m" alt="Original CV" draggable="false" oncontextmenu="return false;"></div>
           <div class="comparison-slide"><div class="comp-label new">Tailored</div><img id="preview-tailored-m" alt="Tailored CV" draggable="false" oncontextmenu="return false;"></div>
@@ -396,27 +383,45 @@
           <div class="swipe-dot active" id="dot-0"></div>
           <div class="swipe-dot" id="dot-1"></div>
         </div>
-        <div style="text-align:center; font-size:11px; color:var(--text-muted); margin-top:6px; display:none;" id="swipe-hint">← Swipe to compare →</div>
       </div>
 
+      <!-- Download button 1 -->
       <div class="actions cta-download">
         <button class="btn btn-download" onclick="payAndDownload()" style="font-size:16px; padding:16px 44px;"><span>↓ Download for €3.99</span></button>
         <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
       </div>
 
-      <div class="red-flags" id="red-flags-box" style="display:none;">
-        <h3>⚠ Potential Red Flags</h3>
-        <ul id="red-flags-list"></ul>
+      <!-- Keyword match scores -->
+      <div class="keyword-scores" id="keyword-scores" style="display:none;">
+        <div class="score-card"><div class="score-label">Original CV</div><div class="score-value before" id="score-before">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
+        <div class="score-arrow">→</div>
+        <div class="score-card"><div class="score-label">Tailored CV</div><div class="score-value after" id="score-after">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
       </div>
 
-      <div class="actions" style="justify-content:center; gap:12px; flex-direction:column; align-items:center;">
+      <!-- Download button 2 -->
+      <div class="actions cta-download">
         <div style="font-size:13px; color:var(--text-muted); margin-bottom:2px;" id="download-filename"></div>
         <button class="btn btn-download" onclick="payAndDownload()" id="btn-pay" style="font-size:16px; padding:16px 44px;">
           <span id="btn-download-text">↓ Download for €3.99</span>
         </button>
         <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
-        <button class="btn btn-reset" onclick="resetApp()" style="margin-top:8px;">Start Over</button>
       </div>
+
+      <!-- Points to improve (collapsible) -->
+      <div class="collapsible" id="improvements-box" style="display:none; margin-top:16px;">
+        <div class="collapsible-header" onclick="toggleCollapsible('improvements-box')">
+          <div class="collapsible-title" style="color:var(--amber);">Points to improve <span class="collapsible-count" id="improvements-count">0</span></div>
+          <span class="collapsible-arrow">▸</span>
+        </div>
+        <div class="collapsible-body">
+          <ul id="improvements-list" style="margin:0; padding-left:16px;"></ul>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:24px;">
+        <button class="btn btn-reset" onclick="resetApp()">Start Over</button>
+      </div>
+
       <div class="retry-section">
         <h3>🎯 Try another role</h3>
         <p>Same CV, different job — paste a new job description below.</p>
@@ -524,7 +529,10 @@
         if(data.error){alert(data.error);document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');return;}
         sessionId=data.session_id; currentRound=1; prevAnalysis=data.analysis;
         document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='Analysis complete';
-        const gaps=countGaps(data.analysis); document.getElementById('progress-msg').textContent=`Found ${gaps.gaps} gap${gaps.gaps!==1?'s':''} to address and ${gaps.strengths} strength${gaps.strengths!==1?'s':''}.`;
+        const gaps=countGaps(data.analysis);
+        document.getElementById('progress-msg').textContent='';
+        document.getElementById('progress-stats').style.display='flex';
+        document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num amber">${gaps.gaps}</div><div class="stat-label">Gaps found</div></div><div class="progress-stat"><div class="stat-num green">${gaps.strengths}</div><div class="stat-label">Strengths</div></div>`;
         renderProgressBullets(data.analysis);
         document.getElementById('progress-summary').style.display='block';
         document.getElementById('btn-continue').textContent='Continue to round 1 →';
@@ -558,25 +566,34 @@
     }
 
     function showFinal(data) {
-      const fb=document.getElementById('red-flags-box'),fl=document.getElementById('red-flags-list');
-      if(data.red_flags?.length){fl.innerHTML=data.red_flags.map(f=>`<li>${escapeHtml(f)}</li>`).join('');fb.style.display='block';}else fb.style.display='none';
+      // Points to improve (collapsible, collapsed by default)
+      const ib=document.getElementById('improvements-box'), il=document.getElementById('improvements-list'), ic=document.getElementById('improvements-count');
+      if(data.red_flags?.length){
+        il.innerHTML=data.red_flags.map(f=>`<li style="font-size:13px; color:var(--text-secondary); margin-bottom:4px; line-height:1.5;">${escapeHtml(f)}</li>`).join('');
+        ic.textContent=data.red_flags.length;
+        ib.style.display='block';
+        ib.classList.remove('open'); // start collapsed
+      } else { ib.style.display='none'; }
+
       document.getElementById('download-filename').textContent=downloadName;
       document.getElementById('btn-download-text').textContent='↓ Download for €3.99';
       document.getElementById('btn-pay').disabled=false;
+
       if(data.keyword_match_original!==undefined&&data.keyword_match_tailored!==undefined){
         document.getElementById('score-before').textContent=data.keyword_match_original+'%';
         document.getElementById('score-after').textContent=data.keyword_match_tailored+'%';
         document.getElementById('keyword-scores').style.display='flex';
       }
+
       if(sessionId){
-        document.getElementById('preview-original').src=`/preview-original/${sessionId}`;
-        document.getElementById('preview-tailored').src=`/preview-tailored/${sessionId}`;
-        document.getElementById('preview-original-m').src=`/preview-original/${sessionId}`;
-        document.getElementById('preview-tailored-m').src=`/preview-tailored/${sessionId}`;
+        const ts = Date.now(); // cache bust
+        document.getElementById('preview-original').src=`/preview-original/${sessionId}?t=${ts}`;
+        document.getElementById('preview-tailored').src=`/preview-tailored/${sessionId}?t=${ts}`;
+        document.getElementById('preview-original-m').src=`/preview-original/${sessionId}?t=${ts}`;
+        document.getElementById('preview-tailored-m').src=`/preview-tailored/${sessionId}?t=${ts}`;
         document.getElementById('comparison-section').style.display='block';
-        // Show swipe hint on mobile
-        if(window.innerWidth<=640) document.getElementById('swipe-hint').style.display='block';
       }
+
       showPanel('final'); window.scrollTo({top:0,behavior:'smooth'});
 
       // Swipe dot tracking
@@ -603,7 +620,7 @@
       sessionId=null;currentRound=0;prevAnalysis=null;pendingRoundData=null;downloadName='tailored_cv.docx';setStep(0);
       fileInput.value='';fileName.textContent='';document.getElementById('jd-input').value='';
       document.getElementById('jd-detect').style.display='none';document.getElementById('keyword-scores').style.display='none';
-      document.getElementById('comparison-section').style.display='none';document.getElementById('red-flags-box').style.display='none';
+      document.getElementById('comparison-section').style.display='none';document.getElementById('improvements-box').style.display='none';
       document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');window.scrollTo({top:0,behavior:'smooth'});
     }
   </script>
