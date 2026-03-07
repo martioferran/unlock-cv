@@ -283,7 +283,6 @@
         <label>Job Description</label>
         <textarea id="jd-input" rows="10" placeholder="Paste the full job description here…"></textarea>
       </div>
-      <div class="loading" id="loading-start"><div class="spinner"></div><span>Analyzing your CV against the job description…</span></div>
       <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">Analyze &amp; Start →</button></div>
     </div>
 
@@ -481,15 +480,32 @@
       if (!cvFile.name.toLowerCase().endsWith('.pdf')) { alert('Please upload a PDF file.'); return; }
       if (!jd) { alert('Please paste the job description.'); return; }
       document.getElementById('btn-start').disabled = true;
-      document.getElementById('loading-start').classList.add('show');
+
+      // Show full progress panel as loading screen
+      document.getElementById('progress-icon').textContent = '🔍';
+      document.getElementById('progress-title').textContent = 'Analyzing your CV…';
+      document.getElementById('progress-msg').textContent = 'Comparing your experience against the job description and identifying gaps.';
+      document.getElementById('progress-spinner').style.display = 'flex';
+      document.getElementById('progress-stats').style.display = 'none';
+      showPanel('progress');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
       const fd = new FormData(); fd.append('cv', cvFile); fd.append('jd', jd);
       try {
         const res = await fetch('/start', { method: 'POST', body: fd });
         const data = await res.json();
-        if (data.error) { alert(data.error); document.getElementById('btn-start').disabled = false; document.getElementById('loading-start').classList.remove('show'); return; }
+        if (data.error) { alert(data.error); document.getElementById('btn-start').disabled = false; showPanel('upload'); return; }
         sessionId = data.session_id; currentRound = 1; prevAnalysis = null;
-        showRound(data);
-      } catch (err) { alert('Connection error.'); document.getElementById('btn-start').disabled = false; document.getElementById('loading-start').classList.remove('show'); }
+
+        // Brief success before showing round
+        document.getElementById('progress-spinner').style.display = 'none';
+        document.getElementById('progress-icon').textContent = '✅';
+        document.getElementById('progress-title').textContent = 'Analysis complete';
+        const gaps = countGaps(data.analysis);
+        document.getElementById('progress-msg').textContent = `Found ${gaps.gaps} gap${gaps.gaps !== 1 ? 's' : ''} to address and ${gaps.strengths} strength${gaps.strengths !== 1 ? 's' : ''}.`;
+        prevAnalysis = data.analysis;
+        setTimeout(() => { showRound(data); }, 1500);
+      } catch (err) { alert('Connection error.'); document.getElementById('btn-start').disabled = false; showPanel('upload'); }
     }
 
     function showRound(data) {
@@ -607,7 +623,6 @@
       fileInput.value = ''; fileName.textContent = '';
       document.getElementById('jd-input').value = '';
       document.getElementById('btn-start').disabled = false;
-      document.getElementById('loading-start').classList.remove('show');
       showPanel('upload'); window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   </script>
