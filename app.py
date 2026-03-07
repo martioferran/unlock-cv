@@ -133,7 +133,7 @@ D) FRAMING GAPS — Where the CV has relevant experience but describes it using 
 
 E) DIFFERENTIATION OPPORTUNITIES — What could make this candidate stand out, not just match.
 
-Present your analysis as a structured gap map, not a vague paragraph.
+Present your analysis summary as 3-5 concise bullet points (max 15 words each). Each bullet should be one clear finding. Do NOT write paragraphs.
 
 ═══════════════════════════════════════════
 STEP 3: QUESTION STRATEGY (3 ROUNDS x 3 QUESTIONS)
@@ -210,7 +210,7 @@ FOR ROUNDS 1-3, respond with ONLY this JSON:
   "round": 1,
   "role_type": "The archetype classification",
   "analysis": {
-    "summary": "2-3 sentence overall assessment",
+    "summary": ["3-5 concise bullet points assessing the CV against the JD. Each bullet: one clear finding, max 15 words."],
     "must_have_gaps": ["List of must-have JD requirements missing or weak in the CV"],
     "keyword_gaps": ["Specific JD keywords/phrases not in the CV"],
     "quantification_gaps": ["CV claims that lack numbers or specifics"],
@@ -763,7 +763,7 @@ def create_checkout():
                 "price_data": {
                     "currency": "eur",
                     "product": STRIPE_PRODUCT_ID,
-                    "unit_amount": 99,
+                    "unit_amount": 399,
                 },
                 "quantity": 1,
             }],
