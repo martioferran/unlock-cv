@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unlock Your CV — Payment</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    :root {
+      --bg: #f8f7f4; --surface: #ffffff; --border: #e0ddd6;
+      --text: #1a1917; --text-secondary: #5c5a54; --text-muted: #8a877f;
+      --accent: #1a5c8a; --success: #2a7d4f; --success-bg: #edf7f1;
+      --danger: #b83b3b; --danger-bg: #fdf0f0;
+      --radius: 10px; --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 48px 40px; max-width: 440px; width: 100%; text-align: center; box-shadow: var(--shadow-md); margin: 24px; }
+    .icon { width: 72px; height: 72px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 32px; }
+    .icon-success { background: var(--success-bg); color: var(--success); }
+    .icon-fail { background: var(--danger-bg); color: var(--danger); }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.7; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border: none; border-radius: var(--radius); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-download { background: linear-gradient(135deg, #2a7d4f, #35a065); color: #fff; box-shadow: var(--shadow-md); }
+    .btn-download:hover { transform: translateY(-1px); }
+    .btn-back { background: transparent; border: 1.5px solid var(--border); color: var(--text-secondary); margin-top: 12px; }
+    .btn-back:hover { border-color: var(--text-muted); color: var(--text); }
+    .filename { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if success %}
+      <div class="icon icon-success">✓</div>
+      <h1>Payment successful!</h1>
+      <p>Your tailored CV is ready to download.</p>
+      <a class="btn btn-download" href="/download/{{ session_id }}">↓ Download Your CV</a>
+      <div class="filename">{{ download_name }}</div>
+    {% else %}
+      <div class="icon icon-fail">✕</div>
+      <h1>Payment not completed</h1>
+      <p>{{ error }}</p>
+      <a class="btn btn-back" href="/">← Back to app</a>
+    {% endif %}
+  </div>
+</body>
+</html>
