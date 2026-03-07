@@ -198,6 +198,44 @@
     .retry-section textarea { min-height: 100px; }
     .retry-section .actions { justify-content: center; }
 
+    /* ── Keyword match scores ── */
+    .keyword-scores {
+      display: flex; justify-content: center; gap: 40px;
+      margin: 20px 0 28px; padding: 20px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+    }
+    .score-card { text-align: center; }
+    .score-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .score-value { font-size: 36px; font-weight: 800; line-height: 1.1; }
+    .score-value.before { color: var(--danger); }
+    .score-value.after { color: var(--success); }
+    .score-arrow { display: flex; align-items: center; font-size: 24px; color: var(--success); font-weight: 700; }
+    .score-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Before/After comparison ── */
+    .comparison {
+      margin: 24px 0;
+    }
+    .comparison h3 { font-size: 14px; font-weight: 700; text-align: center; margin-bottom: 12px; color: var(--text-secondary); }
+    .comparison-frames {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .comparison-col { text-align: center; }
+    .comparison-col .comp-label {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .comparison-col .comp-label.orig { color: var(--danger); }
+    .comparison-col .comp-label.new { color: var(--success); }
+    .comparison-col img {
+      width: 100%; border: 1.5px solid var(--border);
+      border-radius: var(--radius); background: white;
+      pointer-events: none; user-select: none;
+      -webkit-user-drag: none;
+    }
+
     .footer { text-align: center; padding: 48px 0 0; font-size: 12px; color: var(--text-muted); }
 
     /* ── Responsive ── */
@@ -223,6 +261,10 @@
       .file-upload { padding: 28px 16px; }
       .final-message h2 { font-size: 22px; }
       .progress-stats { gap: 16px; }
+      .keyword-scores { gap: 20px; flex-wrap: wrap; padding: 16px; }
+      .score-value { font-size: 28px; }
+      .comparison-frames { grid-template-columns: 1fr; }
+      .comparison-col iframe { height: 350px; }
     }
     @media (max-width: 380px) {
       header h1 { font-size: 24px; }
@@ -281,7 +323,10 @@
       </div>
       <div class="field-group">
         <label>Job Description</label>
-        <textarea id="jd-input" rows="10" placeholder="Paste the full job description here…"></textarea>
+        <textarea id="jd-input" rows="10" placeholder="Paste the full job description here…" oninput="detectJD()"></textarea>
+        <div id="jd-detect" style="display:none; margin-top: 8px; padding: 8px 14px; background: var(--accent-light); border-radius: 8px; font-size: 13px; color: var(--accent); font-weight: 500;">
+          <span id="jd-detect-text"></span>
+        </div>
       </div>
       <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">Analyze &amp; Start →</button></div>
     </div>
@@ -314,12 +359,66 @@
       <div class="final-message">
         <div class="final-icon"><span>✓</span></div>
         <h2>Your tailored CV is ready</h2>
-        <p>All 9 answers have been woven into a single-page CV, optimized with the right keywords for this role.</p>
       </div>
+
+      <!-- Keyword match scores -->
+      <div class="keyword-scores" id="keyword-scores" style="display:none;">
+        <div class="score-card">
+          <div class="score-label">Original CV</div>
+          <div class="score-value before" id="score-before">—</div>
+          <div class="score-detail">keyword match</div>
+        </div>
+        <div class="score-arrow">→</div>
+        <div class="score-card">
+          <div class="score-label">Tailored CV</div>
+          <div class="score-value after" id="score-after">—</div>
+          <div class="score-detail">keyword match</div>
+        </div>
+      </div>
+
+      <!-- Download CTA 1: after keyword scores -->
+      <div class="actions cta-download" style="justify-content: center; gap: 8px; flex-direction: column; align-items: center; margin: 20px 0;">
+        <button class="btn btn-download" onclick="payAndDownload()" style="font-size: 16px; padding: 16px 44px;">
+          <span>↓ Download for €0.99</span>
+        </button>
+        <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 16px;">
+          <span>🔒 Secure payment via Stripe</span>
+          <span>💳 Cards, Google Pay, Apple Pay</span>
+        </div>
+      </div>
+
+      <!-- Before/After comparison -->
+      <div class="comparison" id="comparison-section" style="display:none;">
+        <h3>Before &amp; After</h3>
+        <div class="comparison-frames">
+          <div class="comparison-col">
+            <div class="comp-label orig">Original</div>
+            <img id="preview-original" alt="Original CV" draggable="false" oncontextmenu="return false;">
+          </div>
+          <div class="comparison-col">
+            <div class="comp-label new">Tailored</div>
+            <img id="preview-tailored" alt="Tailored CV" draggable="false" oncontextmenu="return false;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Download CTA 1: after comparison images -->
+      <div class="actions cta-download" style="justify-content: center; gap: 8px; flex-direction: column; align-items: center; margin: 20px 0;">
+        <button class="btn btn-download" onclick="payAndDownload()" style="font-size: 16px; padding: 16px 44px;">
+          <span>↓ Download for €0.99</span>
+        </button>
+        <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 16px;">
+          <span>🔒 Secure payment via Stripe</span>
+          <span>💳 Cards, Google Pay, Apple Pay</span>
+        </div>
+      </div>
+
       <div class="red-flags" id="red-flags-box" style="display:none;">
         <h3>⚠ Potential Red Flags</h3>
         <ul id="red-flags-list"></ul>
       </div>
+
+      <!-- Download CTA 2: main (with filename and start over) -->
       <div class="actions" style="justify-content: center; gap: 12px; flex-direction: column; align-items: center;">
         <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 2px;" id="download-filename"></div>
         <button class="btn btn-download" onclick="payAndDownload()" id="btn-pay" style="font-size: 16px; padding: 16px 44px;">
@@ -351,6 +450,35 @@
     const MAX_ANSWER_CHARS = 500;
     const ROUND_FOCUS = { 1: "Addressing critical gaps", 2: "Keywords & metrics", 3: "Differentiation & polish" };
     const NO_EXP_TEXT = "I don't have direct experience with this.";
+
+    // JD detection preview (point 5)
+    function detectJD() {
+      const jd = document.getElementById('jd-input').value.trim();
+      const detect = document.getElementById('jd-detect');
+      const detectText = document.getElementById('jd-detect-text');
+      if (jd.length < 50) { detect.style.display = 'none'; return; }
+
+      // Try to extract job title and company from first few lines
+      const lines = jd.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      let title = '', company = '';
+
+      for (const line of lines.slice(0, 8)) {
+        const lower = line.toLowerCase();
+        // Skip noise lines
+        if (lower.startsWith('apply') || lower.startsWith('location') || lower.startsWith('deadline') || lower.startsWith('posted') || lower.startsWith('job description') || lower.length > 80) continue;
+        // First short meaningful line is likely title or company
+        if (!title && line.length < 70) { title = line; continue; }
+        if (!company && line.length < 60 && title) { company = line; break; }
+      }
+
+      if (title) {
+        const display = company ? `Detected: ${title} — ${company}` : `Detected: ${title}`;
+        detectText.textContent = display;
+        detect.style.display = 'block';
+      } else {
+        detect.style.display = 'none';
+      }
+    }
 
     const fileInput = document.getElementById('cv-file');
     const fileDrop = document.getElementById('file-drop');
@@ -578,6 +706,21 @@
       document.getElementById('download-filename').textContent = downloadName;
       document.getElementById('btn-download-text').textContent = '↓ Download for €0.99';
       document.getElementById('btn-pay').disabled = false;
+
+      // Keyword match scores
+      if (data.keyword_match_original !== undefined && data.keyword_match_tailored !== undefined) {
+        document.getElementById('score-before').textContent = data.keyword_match_original + '%';
+        document.getElementById('score-after').textContent = data.keyword_match_tailored + '%';
+        document.getElementById('keyword-scores').style.display = 'flex';
+      }
+
+      // Before/After PDF previews
+      if (sessionId) {
+        document.getElementById('preview-original').src = `/preview-original/${sessionId}`;
+        document.getElementById('preview-tailored').src = `/preview-tailored/${sessionId}`;
+        document.getElementById('comparison-section').style.display = 'block';
+      }
+
       showPanel('final'); window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -622,6 +765,10 @@
       sessionId = null; currentRound = 0; prevAnalysis = null; downloadName = 'tailored_cv.docx'; setStep(0);
       fileInput.value = ''; fileName.textContent = '';
       document.getElementById('jd-input').value = '';
+      document.getElementById('jd-detect').style.display = 'none';
+      document.getElementById('keyword-scores').style.display = 'none';
+      document.getElementById('comparison-section').style.display = 'none';
+      document.getElementById('red-flags-box').style.display = 'none';
       document.getElementById('btn-start').disabled = false;
       showPanel('upload'); window.scrollTo({ top: 0, behavior: 'smooth' });
     }

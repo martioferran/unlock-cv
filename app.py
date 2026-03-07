@@ -138,9 +138,17 @@ Ask about must-have requirements and auto-discard risks first. These are the gap
 
 ROUND 2 — KEYWORD MATCHING & QUANTIFICATION:
 With Round 1 answers incorporated, ask about remaining keyword gaps and unquantified claims. Focus on extracting numbers, metrics, and specific examples.
+BEFORE asking Round 2 questions: infer the candidate's career trajectory and the narrative they're building with this application (e.g., "pivoting from VC into corporate strategy" or "deepening consulting expertise"). Use this narrative to frame questions that help them tell a coherent story.
 
 ROUND 3 — DIFFERENTIATION & FINAL POLISH:
 With Rounds 1-2 incorporated, ask about anything that could make the candidate stand out: unique achievements, cross-functional breadth, thought leadership, multicultural experience, etc.
+BEFORE asking Round 3 questions: mentally draft the CV based on everything you know so far. Identify which bullet slots are still weak or empty, and ask questions that will directly fill those specific gaps.
+
+HANDLING "I DON'T HAVE THIS EXPERIENCE" ANSWERS:
+If a candidate says they lack experience with something, do NOT simply accept it and move on. In your next round, probe for ADJACENT or TRANSFERABLE experience that could partially address the gap. Most candidates underestimate their relevant experience. For example:
+- "No direct budget oversight?" → Ask about involvement in budget planning, forecasting, cost tracking, or contributing to someone else's budget process.
+- "No team management?" → Ask about mentoring, onboarding, coordinating with juniors, or leading project teams informally.
+- "No industry experience?" → Ask about adjacent sectors, consulting/advisory work in the sector, or transferable domain knowledge.
 
 QUESTION FORMAT RULES:
 - Each question has 4 separate fields — keep them SHORT and distinct:
@@ -282,6 +290,24 @@ RULES:
 Respond with ONLY the condensed CV JSON in the exact same schema. No markdown, no explanation."""
 
 
+REVIEW_SYSTEM = """You are a CV quality reviewer. You will receive a tailored CV (JSON) and the original job description.
+
+Your job is to improve the CV by:
+1. Check each bullet — does it mirror the JD's language? Is it specific enough? Replace vague words with JD terminology.
+2. Check the "domain" skills line — it must contain at least 5 keywords directly from the JD. Fix it if not.
+3. Identify the single weakest bullet (least relevant to the JD) and either strengthen it or merge it into another bullet.
+4. Ensure bullet labels are distinct — no two bullets should have similar labels.
+5. Verify that the most JD-relevant experience leads each role's bullets.
+
+RULES:
+- Do NOT change company names, dates, titles, education, or factual claims.
+- Do NOT add experience the candidate hasn't mentioned.
+- DO improve word choice, keyword density, and bullet ordering.
+- Keep the exact same JSON schema.
+
+Respond with ONLY the improved CV JSON. No markdown, no explanation."""
+
+
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
@@ -348,6 +374,58 @@ def generate_download_name(cv_data, jd_text):
     if company_abbr:
         return f"CV_{candidate_name}_{company_abbr}_{date_str}.docx"
     return f"CV_{candidate_name}_{date_str}.docx"
+
+
+STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of",
+    "with", "by", "from", "as", "is", "was", "are", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
+    "may", "might", "shall", "can", "need", "must", "that", "this", "these", "those",
+    "it", "its", "they", "them", "their", "we", "our", "you", "your", "he", "she",
+    "his", "her", "all", "each", "every", "both", "few", "more", "most", "other",
+    "some", "such", "than", "too", "very", "just", "also", "not", "only", "own",
+    "same", "so", "about", "up", "out", "into", "over", "after", "before", "between",
+    "through", "during", "above", "below", "under", "again", "further", "then",
+    "once", "here", "there", "when", "where", "why", "how", "what", "which", "who",
+    "whom", "any", "new", "well", "work", "working", "role", "including", "across",
+    "ensure", "ability", "strong", "excellent", "required", "experience", "skills",
+    "within", "part", "will", "including", "related",
+}
+
+
+def calculate_keyword_match(jd_text, cv_text):
+    """Calculate percentage of JD keywords found in CV text."""
+    jd_words = set(
+        w.lower() for w in re.findall(r'\b[a-zA-Z]+\b', jd_text)
+        if len(w) > 3 and w.lower() not in STOPWORDS
+    )
+    cv_words = set(
+        w.lower() for w in re.findall(r'\b[a-zA-Z]+\b', cv_text)
+    )
+    if not jd_words:
+        return 0, 0, set()
+    matched = jd_words & cv_words
+    return round(len(matched) / len(jd_words) * 100), len(jd_words), matched
+
+
+def cv_json_to_text(cv_data):
+    """Convert CV JSON to plain text for keyword matching."""
+    parts = [cv_data.get("name", ""), cv_data.get("contact", "")]
+    for exp in cv_data.get("experience", []):
+        parts.append(exp.get("company", ""))
+        parts.append(exp.get("company_descriptor", "") or "")
+        for role in exp.get("roles", []):
+            parts.append(role.get("title", ""))
+        for bullet in exp.get("bullets", []):
+            parts.append(bullet.get("label", ""))
+            parts.append(bullet.get("text", ""))
+    for edu in cv_data.get("education", []):
+        parts.append(edu.get("degree", ""))
+        parts.append(edu.get("institution", ""))
+    skills = cv_data.get("skills", {})
+    for key in ["languages", "technical", "domain"]:
+        parts.append(skills.get(key, ""))
+    return " ".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -438,16 +516,25 @@ def answer():
     )
 
     if current_round < 3:
+        round_specific = ""
+        if current_round == 1:
+            round_specific = """- Round 2 should focus on KEYWORD MATCHING and QUANTIFICATION gaps — extract specific numbers, metrics, examples that are missing.
+- Before asking questions, infer the candidate's career trajectory — what story are they telling with this application? Use this narrative to frame questions that help them build a coherent arc."""
+        else:
+            round_specific = """- Round 3 should focus on DIFFERENTIATION and FINAL POLISH — what makes this candidate stand out, cross-functional breadth, thought leadership, multicultural experience.
+- Before asking questions, mentally draft the CV based on everything you know. Identify which bullet slots are still weak or empty. Ask questions that will directly fill those gaps."""
+
         user_msg = f"""Here are the candidate's answers to Round {current_round}, paired with the original questions for clarity:
 
 {paired_text}
 
 INSTRUCTIONS:
 1. Reassess your gap analysis with this new information. What gaps are now covered? What remains?
-2. Update the structured analysis (must_have_gaps, keyword_gaps, quantification_gaps, strengths).
-3. Ask 3 NEW questions for Round {current_round + 1}:
-   {"- Round 2 should focus on KEYWORD MATCHING and QUANTIFICATION gaps — extract specific numbers, metrics, examples that are missing." if current_round == 1 else "- Round 3 should focus on DIFFERENTIATION and FINAL POLISH — what makes this candidate stand out, cross-functional breadth, thought leadership, multicultural experience."}
-4. Each question must have separate "question", "why", "example", and "targets" fields.
+2. If the candidate said they lack experience with something, probe for ADJACENT or TRANSFERABLE experience in this round.
+3. Update the structured analysis (must_have_gaps, keyword_gaps, quantification_gaps, strengths).
+4. Ask 3 NEW questions for Round {current_round + 1}:
+   {round_specific}
+5. Each question must have separate "question", "why", "example", and "targets" fields.
 
 Respond with the Round {current_round + 1} JSON."""
     else:
@@ -549,6 +636,44 @@ Return ONLY the trimmed CV JSON in the exact same schema."""
 
             sess["docx_path"] = docx_path
 
+            # Quality review pass (point 4) — one cheap Sonnet call
+            print("[CV Tailor] Running quality review pass...")
+            review_msg = [{
+                "role": "user",
+                "content": f"""Review this tailored CV against the original job description. Improve keyword density, strengthen weak bullets, and ensure the domain skills line contains JD keywords.
+
+<jd>
+{sess["jd_text"][:3000]}
+</jd>
+
+<cv_json>
+{json.dumps(cv_data, indent=2)}
+</cv_json>
+
+Return ONLY the improved CV JSON."""
+            }]
+            try:
+                cv_data = call_claude(review_msg, system=REVIEW_SYSTEM, model=MODEL_ROUNDS)
+                # Regenerate docx with improved version
+                generate_cv_docx(cv_data, docx_path)
+                convert_docx_to_pdf(docx_path, pdf_path)
+                print("[CV Tailor] Quality review complete.")
+            except Exception as review_err:
+                print(f"[CV Tailor] Quality review failed (using pre-review version): {review_err}")
+
+            # Calculate keyword match scores (point 9)
+            original_score, total_keywords, _ = calculate_keyword_match(
+                sess["jd_text"], sess["cv_text"]
+            )
+            tailored_text = cv_json_to_text(cv_data)
+            tailored_score, _, _ = calculate_keyword_match(
+                sess["jd_text"], tailored_text
+            )
+            print(f"[CV Tailor] Keyword match: {original_score}% → {tailored_score}% ({total_keywords} JD keywords)")
+
+            # Store PDF path for preview
+            sess["pdf_path"] = pdf_path
+
             download_name = generate_download_name(cv_data, sess["jd_text"])
             sess["download_name"] = download_name
 
@@ -558,6 +683,9 @@ Return ONLY the trimmed CV JSON in the exact same schema."""
                 "red_flags": result.get("red_flags", []),
                 "download_ready": True,
                 "download_name": download_name,
+                "keyword_match_original": original_score,
+                "keyword_match_tailored": tailored_score,
+                "total_keywords": total_keywords,
             })
         except Exception as e:
             return jsonify({"error": f"CV generation error: {str(e)}"}), 500
@@ -575,6 +703,42 @@ def download(sid):
         as_attachment=True,
         download_name=sessions[sid].get("download_name", "tailored_cv.docx"),
     )
+
+
+@app.route("/preview-original/<sid>")
+def preview_original(sid):
+    """Serve the original CV as a PNG image."""
+    if sid not in sessions:
+        return jsonify({"error": "Session not found."}), 404
+    original_path = os.path.join(sessions[sid]["output_dir"], "original_cv.pdf")
+    img_path = os.path.join(sessions[sid]["output_dir"], "original_preview.png")
+    if not os.path.exists(img_path):
+        try:
+            with pdfplumber.open(original_path) as pdf:
+                page = pdf.pages[0]
+                img = page.to_image(resolution=120)
+                img.save(img_path)
+        except Exception as e:
+            return jsonify({"error": f"Preview failed: {str(e)}"}), 500
+    return send_file(img_path, mimetype="image/png")
+
+
+@app.route("/preview-tailored/<sid>")
+def preview_tailored(sid):
+    """Serve the tailored CV as a PNG image."""
+    if sid not in sessions or "pdf_path" not in sessions[sid]:
+        return jsonify({"error": "Tailored CV not found."}), 404
+    pdf_path = sessions[sid]["pdf_path"]
+    img_path = os.path.join(sessions[sid]["output_dir"], "tailored_preview.png")
+    if not os.path.exists(img_path):
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                page = pdf.pages[0]
+                img = page.to_image(resolution=120)
+                img.save(img_path)
+        except Exception as e:
+            return jsonify({"error": f"Preview failed: {str(e)}"}), 500
+    return send_file(img_path, mimetype="image/png")
 
 
 @app.route("/create-checkout", methods=["POST"])
