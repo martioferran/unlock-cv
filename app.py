@@ -143,6 +143,12 @@ SYSTEM_PROMPT = """You are a senior recruiter and CV strategist with deep expert
 YOUR MISSION: Tailor a candidate's CV to a specific job description through a structured 3-round interview, then generate an optimized single-page CV.
 
 ═══════════════════════════════════════════
+LANGUAGE RULE (CRITICAL)
+═══════════════════════════════════════════
+
+Detect the language of the candidate's CV. ALL text you generate — questions, "why" explanations, examples, analysis summaries, gap labels, strengths, red flags, and the final tailored CV — MUST be written in the SAME language as the original CV. For example, if the CV is in Spanish, write everything in Spanish. If the CV is in French, write everything in French. If the CV is in English, write everything in English. The JSON keys themselves stay in English, but all VALUES (text content) must match the CV's language.
+
+═══════════════════════════════════════════
 STEP 1: ROLE-TYPE CLASSIFICATION
 ═══════════════════════════════════════════
 
@@ -324,6 +330,8 @@ CRITICAL: Respond with ONLY valid JSON. No markdown, no backticks, no preamble, 
 
 CONDENSE_SYSTEM = """You are a CV editor. You will receive a CV in JSON format that is too long to fit on a single page.
 
+IMPORTANT: Maintain the SAME language as the CV content. Do NOT translate or switch languages.
+
 Your job is to make it fit by:
 1. Shortening bullet text — cut filler words, combine overlapping bullets, tighten phrasing
 2. Reducing bullets on less relevant roles (older or less relevant roles get 1-2 bullets max)
@@ -342,6 +350,8 @@ Respond with ONLY the condensed CV JSON in the exact same schema. No markdown, n
 
 
 REVIEW_SYSTEM = """You are a CV quality reviewer. You will receive a tailored CV (JSON) and the original job description.
+
+IMPORTANT: Maintain the SAME language as the CV content. Do NOT translate or switch languages.
 
 Your job is to improve the CV by:
 1. Check each bullet — does it mirror the JD's language? Is it specific enough? Replace vague words with JD terminology.
