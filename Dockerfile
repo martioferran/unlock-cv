@@ -20,4 +20,6 @@ COPY . .
 RUN mkdir -p outputs
 
 # Run
-CMD gunicorn app:app --bind 0.0.0.0:${PORT:-8080} --timeout 120
+EXPOSE 8080
+
+CMD ["sh", "-c", "gunicorn app:app --bind 0.0.0.0:${PORT:-8080} --timeout 120"]
