@@ -65,14 +65,14 @@
 
     /* ── Steps ── */
     .steps-container { margin-bottom: 24px; }
-    .steps-bar { display: flex; gap: 4px; margin-bottom: 10px; }
-    .step-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; transition: background 0.5s ease; }
+    .steps-bar { display: flex; gap: 6px; margin-bottom: 10px; }
+    .step-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; transition: background 0.5s ease; }
     .step-bar.active { background: var(--accent); }
-    .step-bar.done { background: var(--accent); opacity: 0.45; }
+    .step-bar.done { background: var(--accent); opacity: 0.6; }
     .steps-labels { display: flex; justify-content: space-between; padding: 0 2px; }
-    .step-label { font-size: 10.5px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
+    .step-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
     .step-label.active { color: var(--accent); font-weight: 700; }
-    .step-label.done { color: var(--text-secondary); }
+    .step-label.done { color: var(--accent); opacity: 0.6; }
 
     .panel { display: none; animation: fadeIn 0.4s ease; }
     .panel.active { display: block; }
@@ -237,7 +237,7 @@
       .how-step .how-icon { font-size: 20px; margin-bottom: 0; flex-shrink: 0; }
       .how-step .how-num { margin-bottom: 0; position: absolute; top: 8px; right: 10px; }
       .steps-labels { gap: 2px; }
-      .step-label { font-size: 9px; letter-spacing: 0; }
+      .step-label { font-size: 10px; letter-spacing: 0; }
       .round-header { flex-direction: column; gap: 4px; }
       .question-card { padding: 16px; }
       .question-card .q-text { font-size: 14px; }
@@ -269,7 +269,7 @@
       header h1 { font-size: 24px; }
       header .tagline { font-size: 14px; }
       .trust-bar { flex-direction: column; gap: 8px; align-items: center; }
-      .step-label { font-size: 8px; }
+      .step-label { font-size: 9px; }
     }
   </style>
 </head>
@@ -382,7 +382,7 @@
 
       <!-- Download button 1 -->
       <div class="actions cta-download">
-        <button class="btn btn-download" onclick="payAndDownload()" style="font-size:16px; padding:16px 44px;"><span>↓ Download for €3.99</span></button>
+        <button class="btn btn-download" onclick="payAndDownload()" id="btn-pay" style="font-size:16px; padding:16px 44px;"><span id="btn-download-text">↓ Download for €3.99</span></button>
         <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
       </div>
 
@@ -391,26 +391,6 @@
         <div class="score-card"><div class="score-label">Original CV</div><div class="score-value before" id="score-before">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
         <div class="score-arrow">→</div>
         <div class="score-card"><div class="score-label">Tailored CV</div><div class="score-value after" id="score-after">—</div><div style="font-size:11px; color:var(--text-muted); margin-top:2px;">keyword match</div></div>
-      </div>
-
-      <!-- Download button 2 -->
-      <div class="actions cta-download">
-        <div style="font-size:13px; color:var(--text-muted); margin-bottom:2px;" id="download-filename"></div>
-        <button class="btn btn-download" onclick="payAndDownload()" id="btn-pay" style="font-size:16px; padding:16px 44px;">
-          <span id="btn-download-text">↓ Download for €3.99</span>
-        </button>
-        <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
-      </div>
-
-      <!-- Points to improve (collapsible) -->
-      <div class="collapsible" id="improvements-box" style="display:none; margin-top:16px;">
-        <div class="collapsible-header" onclick="toggleCollapsible('improvements-box')">
-          <div class="collapsible-title" style="color:var(--amber);">Points to improve <span class="collapsible-count" id="improvements-count">0</span></div>
-          <span class="collapsible-arrow">▸</span>
-        </div>
-        <div class="collapsible-body">
-          <ul id="improvements-list" style="margin:0; padding-left:16px;"></ul>
-        </div>
       </div>
 
       <div style="text-align:center; margin-top:24px;">
@@ -474,6 +454,7 @@
     function goToQuestions() {
       if (!pendingRoundData) return;
       const d = pendingRoundData;
+      setStep(d.round); // advance the step bar: round 1=step 1, round 2=step 2, round 3=step 3
       document.getElementById('round-label').textContent = `Round ${d.round} of 3`;
       document.getElementById('round-focus').textContent = ROUND_FOCUS[d.round] || '';
       renderQuestions(d.questions, d.round);
@@ -541,19 +522,6 @@
     }
 
     function showFinal(data) {
-      // Points to improve (collapsible, collapsed by default)
-      const ib=document.getElementById('improvements-box'), il=document.getElementById('improvements-list'), ic=document.getElementById('improvements-count');
-      if(data.red_flags?.length){
-        il.innerHTML=data.red_flags.map(f=>`<li style="font-size:13px; color:var(--text-secondary); margin-bottom:4px; line-height:1.5;">${escapeHtml(f)}</li>`).join('');
-        ic.textContent=data.red_flags.length;
-        ib.style.display='block';
-        ib.classList.remove('open'); // start collapsed
-      } else { ib.style.display='none'; }
-
-      document.getElementById('download-filename').textContent=downloadName;
-      document.getElementById('btn-download-text').textContent='↓ Download for €3.99';
-      document.getElementById('btn-pay').disabled=false;
-
       if(data.keyword_match_original!==undefined&&data.keyword_match_tailored!==undefined){
         document.getElementById('score-before').textContent=data.keyword_match_original+'%';
         document.getElementById('score-after').textContent=data.keyword_match_tailored+'%';
@@ -561,17 +529,16 @@
       }
 
       if(sessionId){
-        const ts = Date.now(); // cache bust
-        document.getElementById('preview-original').src=`/preview-original/${sessionId}?t=${ts}`;
+        const ts = Date.now();
         document.getElementById('preview-tailored').src=`/preview-tailored/${sessionId}?t=${ts}`;
-        document.getElementById('preview-original-m').src=`/preview-original/${sessionId}?t=${ts}`;
+        document.getElementById('preview-original').src=`/preview-original/${sessionId}?t=${ts}`;
         document.getElementById('preview-tailored-m').src=`/preview-tailored/${sessionId}?t=${ts}`;
+        document.getElementById('preview-original-m').src=`/preview-original/${sessionId}?t=${ts}`;
         document.getElementById('comparison-section').style.display='block';
       }
 
       showPanel('final'); window.scrollTo({top:0,behavior:'smooth'});
 
-      // Swipe dot tracking
       const swipe=document.getElementById('comparison-swipe');
       if(swipe) swipe.addEventListener('scroll',()=>{
         const pct=swipe.scrollLeft/(swipe.scrollWidth-swipe.clientWidth);
@@ -595,7 +562,7 @@
       sessionId=null;currentRound=0;prevAnalysis=null;pendingRoundData=null;downloadName='tailored_cv.docx';setStep(0);
       fileInput.value='';fileName.textContent='';document.getElementById('jd-input').value='';
       document.getElementById('jd-detect').style.display='none';document.getElementById('keyword-scores').style.display='none';
-      document.getElementById('comparison-section').style.display='none';document.getElementById('improvements-box').style.display='none';
+      document.getElementById('comparison-section').style.display='none';
       document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');window.scrollTo({top:0,behavior:'smooth'});
     }
   </script>
