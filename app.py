@@ -36,6 +36,7 @@ client = Anthropic(api_key=api_key)
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_PRODUCT_ID = os.getenv("STRIPE_PRODUCT_ID", "")
+STRIPE_PRODUCT_ID_FORMAT = os.getenv("STRIPE_PRODUCT_ID_FORMAT", "")
 
 # Model config: Sonnet for Q&A rounds (cheaper/faster), Opus for final generation
 MODEL_ROUNDS = "claude-sonnet-4-6"
@@ -369,6 +370,59 @@ RULES:
 Respond with ONLY the improved CV JSON. No markdown, no explanation."""
 
 
+FORMAT_SYSTEM = """You are a professional CV formatter. You will receive a candidate's CV as extracted text.
+
+Your job is to extract ALL information from the CV and restructure it into a clean, professional, single-page format.
+
+LANGUAGE RULE: Detect the language of the CV. ALL text you generate MUST be in the SAME language as the original CV.
+
+RULES:
+- Extract ALL work experience, education, skills, and contact information
+- Do NOT fabricate or add any information that isn't in the original CV
+- Do NOT remove any roles or education entries
+- Use strong action verbs and concise bullet points (20-30 words max per bullet)
+- Lead each role's bullets with the most impactful content
+- Add company descriptors in parentheses where the company isn't well-known
+- Keep bullet text concise — every word must earn its place
+- The output MUST follow the fixed template structure below
+
+OUTPUT FORMAT (strict JSON):
+{
+  "cv": {
+    "name": "Full Name",
+    "contact": "phone | email | location",
+    "experience": [
+      {
+        "company": "Company Name",
+        "company_descriptor": "Optional parenthetical or null",
+        "location": "City, Country",
+        "roles": [
+          {"title": "Job Title", "dates": "Start - End"}
+        ],
+        "bullets": [
+          {"label": "Bold Label", "text": "Concise description"}
+        ]
+      }
+    ],
+    "education": [
+      {
+        "institution": "University Name",
+        "location": "City, Country",
+        "degree": "Degree description",
+        "dates": "Start - End"
+      }
+    ],
+    "skills": {
+      "languages": "Language list with levels",
+      "technical": "Technical skills",
+      "domain": "Domain expertise keywords"
+    }
+  }
+}
+
+Respond with ONLY valid JSON. No markdown, no backticks, no preamble."""
+
+
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
@@ -518,12 +572,12 @@ def health():
 
 @app.route("/start", methods=["POST"])
 def start():
-    """Upload CV + JD, kick off round 1."""
+    """Upload CV + optional JD. If JD provided: tailoring flow. If not: format-only."""
     jd_text = request.form.get("jd", "").strip()
     cv_file = request.files.get("cv")
 
-    if not jd_text or not cv_file:
-        return jsonify({"error": "Please provide both a CV file and job description."}), 400
+    if not cv_file:
+        return jsonify({"error": "Please upload a CV file."}), 400
 
     sid = str(uuid.uuid4())
     upload_dir = os.path.join("outputs", sid)
@@ -535,6 +589,79 @@ def start():
     if not cv_text:
         return jsonify({"error": "Could not extract text from the PDF."}), 400
 
+    # FORMAT-ONLY mode (no JD)
+    if not jd_text:
+        try:
+            format_msg = [{"role": "user", "content": f"""Extract all information from this CV and restructure it into the professional template format.
+
+<cv>
+{cv_text}
+</cv>
+
+Return ONLY the JSON with the CV data."""}]
+
+            result = call_claude(format_msg, system=FORMAT_SYSTEM, model=MODEL_FINAL)
+            cv_data = result.get("cv", result)
+
+            docx_path = os.path.join(upload_dir, "formatted_cv.docx")
+            pdf_out_path = os.path.join(upload_dir, "formatted_cv.pdf")
+
+            # Generate and check page count
+            attempts = 0
+            while attempts < 3:
+                generate_cv_docx(cv_data, docx_path)
+                converted = convert_docx_to_pdf(docx_path, pdf_out_path)
+                if not converted:
+                    break
+                with pdfplumber.open(pdf_out_path) as pdf:
+                    num_pages = len(pdf.pages)
+                    if num_pages <= 1:
+                        break
+                    overflow_text = ""
+                    for page in pdf.pages[1:]:
+                        page_text = page.extract_text()
+                        if page_text:
+                            overflow_text += page_text
+                attempts += 1
+                trim_msg = [{"role": "user", "content": f"""This CV overflows to {num_pages} pages. Make it fit on one page.
+
+---OVERFLOW TEXT---
+{overflow_text}
+---END---
+
+<cv_json>
+{json.dumps(cv_data, indent=2)}
+</cv_json>
+
+Return ONLY the trimmed CV JSON."""}]
+                cv_data = call_claude(trim_msg, system=CONDENSE_SYSTEM, model=MODEL_FINAL)
+
+            # Generate download name
+            candidate_name = cv_data.get("name", "CV").replace(" ", "")
+            date_str = datetime.now().strftime("%b%Y")
+            download_name = f"CV_{candidate_name}_{date_str}.docx"
+
+            sessions[sid] = {
+                "output_dir": upload_dir,
+                "cv_text": cv_text,
+                "jd_text": "",
+                "docx_path": docx_path,
+                "pdf_path": pdf_out_path,
+                "download_name": download_name,
+                "mode": "format",
+            }
+
+            return jsonify({
+                "session_id": sid,
+                "round": "final",
+                "mode": "format",
+                "download_ready": True,
+                "download_name": download_name,
+            })
+        except Exception as e:
+            return jsonify({"error": f"Formatting error: {str(e)}"}), 500
+
+    # TAILORING mode (with JD) — existing flow
     user_msg = f"""Here is the candidate's current CV:
 
 <cv>
@@ -571,9 +698,10 @@ Respond with the Round 1 JSON."""
         "jd_text": jd_text,
         "cv_text": cv_text,
         "last_questions": result.get("questions", []),
+        "mode": "tailor",
     }
 
-    return jsonify({"session_id": sid, **result})
+    return jsonify({"session_id": sid, "mode": "tailor", **result})
 
 
 @app.route("/answer", methods=["POST"])
@@ -822,12 +950,17 @@ def preview_tailored(sid):
 
 @app.route("/create-checkout", methods=["POST"])
 def create_checkout():
-    """Create a Stripe Checkout session for €0.99."""
+    """Create a Stripe Checkout session — €3.99 for tailor, €1.99 for format."""
     data = request.get_json()
     sid = data.get("session_id")
 
     if not sid or sid not in sessions:
         return jsonify({"error": "Session not found."}), 404
+
+    sess = sessions[sid]
+    is_format = sess.get("mode") == "format"
+    amount = 199 if is_format else 399
+    product_id = STRIPE_PRODUCT_ID_FORMAT if is_format else STRIPE_PRODUCT_ID
 
     try:
         checkout_session = stripe.checkout.Session.create(
@@ -835,8 +968,8 @@ def create_checkout():
             line_items=[{
                 "price_data": {
                     "currency": "eur",
-                    "product": STRIPE_PRODUCT_ID,
-                    "unit_amount": 399,
+                    "product": product_id,
+                    "unit_amount": amount,
                 },
                 "quantity": 1,
             }],

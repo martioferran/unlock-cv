@@ -350,13 +350,13 @@
         </div>
       </div>
       <div class="field-group">
-        <label>Job Description</label>
-        <textarea id="jd-input" rows="10" placeholder="Paste the full job description here…" oninput="detectJD()"></textarea>
+        <label>Job Description <span style="font-weight:400; text-transform:none; letter-spacing:0; color:var(--text-muted);">(Optional)</span></label>
+        <textarea id="jd-input" rows="10" placeholder="Paste a job description to tailor your CV for a specific role, or leave empty to just format your CV professionally." oninput="detectJD(); updateStartButton()"></textarea>
         <div id="jd-detect" style="display:none; margin-top:8px; padding:8px 14px; background:var(--accent-light); border-radius:8px; font-size:13px; color:var(--accent); font-weight:500;">
           <span id="jd-detect-text"></span>
         </div>
       </div>
-      <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="gtag_report_conversion(); startAnalysis()">Analyze &amp; Start →</button></div>
+      <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="gtag_report_conversion(); startAnalysis()">Format CV →</button></div>
     </div>
 
     <!-- Progress / Loading -->
@@ -385,7 +385,7 @@
     <div class="panel" id="panel-final">
       <div style="text-align:center; padding:24px 0 8px;">
         <h2 style="font-size:26px; font-weight:700;">Your tailored CV is ready</h2>
-        <p style="font-size:16px; color:var(--text-secondary); margin-top:8px;">👆 Swipe to compare tailored vs. original</p>
+        <p id="final-subtitle" style="font-size:16px; color:var(--text-secondary); margin-top:8px;">👆 Swipe to compare tailored vs. original</p>
       </div>
 
       <!-- Comparison images first -->
@@ -434,10 +434,16 @@
   </div>
 
   <script>
-    let sessionId = null, currentRound = 0, prevAnalysis = null, downloadName = 'tailored_cv.docx', pendingRoundData = null;
+    let sessionId = null, currentRound = 0, prevAnalysis = null, downloadName = 'tailored_cv.docx', pendingRoundData = null, sessionMode = 'tailor';
     const MAX_ANSWER_CHARS = 500;
     const ROUND_FOCUS = { 1: "Addressing critical gaps", 2: "Keywords & metrics", 3: "Differentiation & polish" };
     const NO_EXP_TEXT = "I don't have direct experience with this.";
+
+    function updateStartButton() {
+      const jd = document.getElementById('jd-input').value.trim();
+      const btn = document.getElementById('btn-start');
+      btn.textContent = jd.length > 0 ? 'Analyze & Tailor →' : 'Format CV →';
+    }
 
     function detectJD() {
       const jd = document.getElementById('jd-input').value.trim();
@@ -500,21 +506,49 @@
 
     async function startAnalysis() {
       const cvFile=fileInput.files[0], jd=document.getElementById('jd-input').value.trim();
-      if(!cvFile){alert('Please upload your CV as a PDF file.');return;} if(!cvFile.name.toLowerCase().endsWith('.pdf')){alert('Please upload a PDF file.');return;} if(!jd){alert('Please paste the job description.');return;}
+      if(!cvFile){alert('Please upload your CV as a PDF file.');return;} if(!cvFile.name.toLowerCase().endsWith('.pdf')){alert('Please upload a PDF file.');return;}
       document.getElementById('btn-start').disabled=true;
-      showMiniHeader(); document.getElementById('progress-icon').textContent='🔍'; document.getElementById('progress-title').textContent='Analyzing your CV…'; document.getElementById('progress-msg').textContent='Comparing your experience against the job description.'; document.getElementById('progress-spinner').style.display='flex'; document.getElementById('progress-stats').style.display='none'; document.getElementById('progress-wait').textContent='This can take 20–30 seconds, please don\'t leave the page.'; showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
-      const fd=new FormData(); fd.append('cv',cvFile); fd.append('jd',jd);
+      const isFormat = !jd;
+      sessionMode = isFormat ? 'format' : 'tailor';
+
+      showMiniHeader();
+      document.getElementById('progress-icon').textContent=isFormat?'📄':'🔍';
+      document.getElementById('progress-title').textContent=isFormat?'Formatting your CV…':'Analyzing your CV…';
+      document.getElementById('progress-msg').textContent=isFormat?'Restructuring your CV into a clean professional format.':'Comparing your experience against the job description.';
+      document.getElementById('progress-spinner').style.display='flex';
+      document.getElementById('progress-stats').style.display='none';
+      document.getElementById('progress-wait').textContent=isFormat?'This can take up to one minute, please don\'t leave the page.':'This can take 20–30 seconds, please don\'t leave the page.';
+      showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
+
+      const fd=new FormData(); fd.append('cv',cvFile); if(jd) fd.append('jd',jd);
       try {
         const res=await fetch('/start',{method:'POST',body:fd}); const data=await res.json();
         if(data.error){alert(data.error);document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');return;}
-        sessionId=data.session_id; currentRound=1; prevAnalysis=data.analysis;
-        document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-wait').textContent=''; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='Analysis complete';
-        const gaps=countGaps(data.analysis);
-        document.getElementById('progress-msg').textContent='';
-        document.getElementById('progress-stats').style.display='flex';
-        document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num amber">${gaps.gaps}</div><div class="stat-label">Gaps found</div></div><div class="progress-stat"><div class="stat-num green">${gaps.strengths}</div><div class="stat-label">Strengths</div></div>`;
-        pendingRoundData = data;
-        setTimeout(()=>{goToQuestions();},2000);
+        sessionId=data.session_id;
+        document.getElementById('progress-wait').textContent='';
+
+        if(data.mode==='format' || data.round==='final') {
+          // Format-only: skip straight to final
+          document.getElementById('progress-spinner').style.display='none';
+          document.getElementById('progress-icon').textContent='✅';
+          document.getElementById('progress-title').textContent='CV formatted successfully!';
+          document.getElementById('progress-msg').textContent='Your professionally formatted CV is ready.';
+          downloadName=data.download_name||'formatted_cv.docx';
+          sessionMode='format';
+          setTimeout(()=>{setStep(4);showFinal(data);},1500);
+        } else {
+          // Tailoring: show stats then go to questions
+          currentRound=1; prevAnalysis=data.analysis; sessionMode='tailor';
+          document.getElementById('progress-spinner').style.display='none';
+          document.getElementById('progress-icon').textContent='✅';
+          document.getElementById('progress-title').textContent='Analysis complete';
+          const gaps=countGaps(data.analysis);
+          document.getElementById('progress-msg').textContent='';
+          document.getElementById('progress-stats').style.display='flex';
+          document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num amber">${gaps.gaps}</div><div class="stat-label">Gaps found</div></div><div class="progress-stat"><div class="stat-num green">${gaps.strengths}</div><div class="stat-label">Strengths</div></div>`;
+          pendingRoundData=data;
+          setTimeout(()=>{goToQuestions();},2000);
+        }
       } catch(err){alert('Connection error.');document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');}
     }
 
@@ -546,12 +580,22 @@
     }
 
     function showFinal(data) {
-      if(data.keyword_match_original!==undefined&&data.keyword_match_tailored!==undefined){
+      const isFormat = sessionMode === 'format';
+      const price = isFormat ? '€1.99' : '€3.99';
+
+      // Update price on download button
+      document.getElementById('btn-download-text').textContent = `↓ Download for ${price}`;
+
+      // Keyword scores: only show for tailor mode
+      if(!isFormat && data.keyword_match_original!==undefined && data.keyword_match_tailored!==undefined){
         document.getElementById('score-before').textContent=data.keyword_match_original+'%';
         document.getElementById('score-after').textContent=data.keyword_match_tailored+'%';
         document.getElementById('keyword-scores').style.display='flex';
+      } else {
+        document.getElementById('keyword-scores').style.display='none';
       }
 
+      // Comparison images
       if(sessionId){
         const ts = Date.now();
         document.getElementById('preview-tailored').src=`/preview-tailored/${sessionId}?t=${ts}`;
@@ -560,6 +604,11 @@
         document.getElementById('preview-original-m').src=`/preview-original/${sessionId}?t=${ts}`;
         document.getElementById('comparison-section').style.display='block';
       }
+
+      // Update subtitle
+      document.getElementById('final-subtitle').textContent = isFormat
+        ? 'Your CV has been professionally reformatted'
+        : '👆 Swipe to compare tailored vs. original';
 
       showPanel('final'); window.scrollTo({top:0,behavior:'smooth'});
 
@@ -578,12 +627,14 @@
     }
 
     async function payAndDownload() {
-      const btn=document.getElementById('btn-pay'); btn.disabled=true; document.getElementById('btn-download-text').textContent='Redirecting to payment…';
-      try{const res=await fetch('/create-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId})}); const data=await res.json(); if(data.error){alert(data.error);btn.disabled=false;document.getElementById('btn-download-text').textContent='↓ Download for €3.99';return;} window.location.href=data.checkout_url;}catch(err){alert('Connection error.');btn.disabled=false;document.getElementById('btn-download-text').textContent='↓ Download for €3.99';}
+      const btn=document.getElementById('btn-pay'); btn.disabled=true;
+      const price = sessionMode === 'format' ? '€1.99' : '€3.99';
+      document.getElementById('btn-download-text').textContent='Redirecting to payment…';
+      try{const res=await fetch('/create-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId})}); const data=await res.json(); if(data.error){alert(data.error);btn.disabled=false;document.getElementById('btn-download-text').textContent=`↓ Download for ${price}`;return;} window.location.href=data.checkout_url;}catch(err){alert('Connection error.');btn.disabled=false;document.getElementById('btn-download-text').textContent=`↓ Download for ${price}`;}
     }
     function downloadCV(){if(sessionId)window.location.href=`/download/${sessionId}`;}
     function resetApp(){
-      sessionId=null;currentRound=0;prevAnalysis=null;pendingRoundData=null;downloadName='tailored_cv.docx';setStep(0);
+      sessionId=null;currentRound=0;prevAnalysis=null;pendingRoundData=null;downloadName='tailored_cv.docx';sessionMode='tailor';setStep(0);
       fileInput.value='';fileName.textContent='';document.getElementById('jd-input').value='';
       document.getElementById('jd-detect').style.display='none';document.getElementById('keyword-scores').style.display='none';
       document.getElementById('comparison-section').style.display='none';
