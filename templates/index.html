@@ -335,7 +335,7 @@
       <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">Analyze &amp; Start →</button></div>
     </div>
 
-    <!-- Progress / Loading + Summary combined -->
+    <!-- Progress / Loading -->
     <div class="panel" id="panel-progress">
       <div class="progress-transition">
         <div style="font-size:32px; margin-bottom:8px;" id="progress-icon">📊</div>
@@ -343,12 +343,7 @@
         <div class="progress-msg" id="progress-msg"></div>
         <div style="display:flex; justify-content:center; margin:20px 0;" id="progress-spinner"><div class="spinner" style="width:24px; height:24px;"></div></div>
         <div class="progress-stats" id="progress-stats" style="display:none;"></div>
-      </div>
-      <div id="progress-summary" style="display:none; text-align:left; margin-top:20px;">
-        <div class="summary-bullets" id="progress-bullets"></div>
-        <div class="actions" style="justify-content:center; margin-top:20px;">
-          <button class="btn btn-primary" id="btn-continue" onclick="goToQuestions()">Continue to next round →</button>
-        </div>
+        <div style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:16px;" id="progress-wait"></div>
       </div>
     </div>
 
@@ -366,18 +361,18 @@
     <div class="panel" id="panel-final">
       <div style="text-align:center; padding:24px 0 8px;">
         <h2 style="font-size:26px; font-weight:700;">Your tailored CV is ready</h2>
-        <p style="font-size:14px; color:var(--text-muted); margin-top:6px;">Swipe to compare before and after</p>
+        <p style="font-size:16px; color:var(--text-secondary); margin-top:8px;">👆 Swipe to compare before and after</p>
       </div>
 
       <!-- Comparison images first -->
       <div class="comparison" id="comparison-section" style="display:none;">
         <div class="comparison-frames">
-          <div class="comparison-col"><div class="comp-label orig">Original</div><img id="preview-original" alt="Original CV" draggable="false" oncontextmenu="return false;"></div>
-          <div class="comparison-col"><div class="comp-label new">Tailored</div><img id="preview-tailored" alt="Tailored CV" draggable="false" oncontextmenu="return false;"></div>
+          <div class="comparison-col"><div class="comp-label orig">Original</div><img id="preview-original" alt="Original CV" draggable="false" oncontextmenu="return false;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" ><div class="img-placeholder" style="display:none; height:300px; align-items:center; justify-content:center; background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-size:13px;">Preview unavailable</div></div>
+          <div class="comparison-col"><div class="comp-label new">Tailored</div><img id="preview-tailored" alt="Tailored CV" draggable="false" oncontextmenu="return false;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="img-placeholder" style="display:none; height:300px; align-items:center; justify-content:center; background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-size:13px;">Preview unavailable</div></div>
         </div>
         <div class="comparison-swipe" id="comparison-swipe">
-          <div class="comparison-slide"><div class="comp-label orig">Original</div><img id="preview-original-m" alt="Original CV" draggable="false" oncontextmenu="return false;"></div>
-          <div class="comparison-slide"><div class="comp-label new">Tailored</div><img id="preview-tailored-m" alt="Tailored CV" draggable="false" oncontextmenu="return false;"></div>
+          <div class="comparison-slide"><div class="comp-label orig">Original</div><img id="preview-original-m" alt="Original CV" draggable="false" oncontextmenu="return false;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="img-placeholder" style="display:none; height:400px; align-items:center; justify-content:center; background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-size:13px;">Preview unavailable</div></div>
+          <div class="comparison-slide"><div class="comp-label new">Tailored</div><img id="preview-tailored-m" alt="Tailored CV" draggable="false" oncontextmenu="return false;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><div class="img-placeholder" style="display:none; height:400px; align-items:center; justify-content:center; background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius); color:var(--text-muted); font-size:13px;">Preview unavailable</div></div>
         </div>
         <div class="swipe-dots" id="swipe-dots">
           <div class="swipe-dot active" id="dot-0"></div>
@@ -474,26 +469,7 @@
     function toggleCollapsible(id) { document.getElementById(id).classList.toggle('open'); }
     function countGaps(a) { if(!a||typeof a==='string') return {gaps:0,strengths:0}; return {gaps:(a.must_have_gaps?.length||0)+(a.keyword_gaps?.length||0)+(a.quantification_gaps?.length||0), strengths:a.strengths?.length||0}; }
 
-    function renderProgressBullets(analysis) {
-      const el = document.getElementById('progress-bullets');
-      if (Array.isArray(analysis?.summary)) {
-        el.innerHTML = analysis.summary.map(b => `<div class="summary-bullet">${escapeHtml(b)}</div>`).join('');
-      } else if (typeof analysis === 'string') {
-        el.innerHTML = `<div class="summary-bullet">${escapeHtml(analysis)}</div>`;
-      } else if (analysis?.summary) {
-        const sentences = String(analysis.summary).split(/(?<=\.)\s+/).filter(s => s.length > 5);
-        el.innerHTML = sentences.map(s => `<div class="summary-bullet">${escapeHtml(s)}</div>`).join('');
-      }
-    }
-
-    function showProgressWithSummary(data) {
-      showMiniHeader();
-      setStep(data.round);
-      renderProgressBullets(data.analysis);
-      document.getElementById('progress-summary').style.display = 'block';
-      document.getElementById('btn-continue').textContent = `Continue to round ${data.round} →`;
-      pendingRoundData = data;
-    }
+    function renderProgressBullets(analysis) {} // no-op, kept for compat
 
     function goToQuestions() {
       if (!pendingRoundData) return;
@@ -501,7 +477,6 @@
       document.getElementById('round-label').textContent = `Round ${d.round} of 3`;
       document.getElementById('round-focus').textContent = ROUND_FOCUS[d.round] || '';
       renderQuestions(d.questions, d.round);
-      document.getElementById('progress-summary').style.display = 'none';
       showPanel('round');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -522,21 +497,19 @@
       const cvFile=fileInput.files[0], jd=document.getElementById('jd-input').value.trim();
       if(!cvFile){alert('Please upload your CV as a PDF file.');return;} if(!cvFile.name.toLowerCase().endsWith('.pdf')){alert('Please upload a PDF file.');return;} if(!jd){alert('Please paste the job description.');return;}
       document.getElementById('btn-start').disabled=true;
-      showMiniHeader(); document.getElementById('progress-icon').textContent='🔍'; document.getElementById('progress-title').textContent='Analyzing your CV…'; document.getElementById('progress-msg').textContent='Comparing your experience against the job description.'; document.getElementById('progress-spinner').style.display='flex'; document.getElementById('progress-stats').style.display='none'; showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
+      showMiniHeader(); document.getElementById('progress-icon').textContent='🔍'; document.getElementById('progress-title').textContent='Analyzing your CV…'; document.getElementById('progress-msg').textContent='Comparing your experience against the job description.'; document.getElementById('progress-spinner').style.display='flex'; document.getElementById('progress-stats').style.display='none'; document.getElementById('progress-wait').textContent='This can take 20–30 seconds, please don\'t leave the page.'; showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
       const fd=new FormData(); fd.append('cv',cvFile); fd.append('jd',jd);
       try {
         const res=await fetch('/start',{method:'POST',body:fd}); const data=await res.json();
         if(data.error){alert(data.error);document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');return;}
         sessionId=data.session_id; currentRound=1; prevAnalysis=data.analysis;
-        document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='Analysis complete';
+        document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-wait').textContent=''; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='Analysis complete';
         const gaps=countGaps(data.analysis);
         document.getElementById('progress-msg').textContent='';
         document.getElementById('progress-stats').style.display='flex';
         document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num amber">${gaps.gaps}</div><div class="stat-label">Gaps found</div></div><div class="progress-stat"><div class="stat-num green">${gaps.strengths}</div><div class="stat-label">Strengths</div></div>`;
-        renderProgressBullets(data.analysis);
-        document.getElementById('progress-summary').style.display='block';
-        document.getElementById('btn-continue').textContent='Continue to round 1 →';
         pendingRoundData = data;
+        setTimeout(()=>{goToQuestions();},2000);
       } catch(err){alert('Connection error.');document.getElementById('btn-start').disabled=false;showFullHeader();showPanel('upload');}
     }
 
@@ -544,10 +517,11 @@
       const answers=[]; for(let i=0;i<3;i++){const el=document.getElementById(`answer-${i}`);if(!el)break;const v=el.value.trim();if(!v){alert(`Please answer question ${(currentRound-1)*3+i+1}.`);return;}answers.push(v);}
       document.getElementById('btn-submit').disabled=true;
       const isFinal=currentRound>=3;
-      document.getElementById('progress-icon').textContent=isFinal?'✨':'📊'; document.getElementById('progress-title').textContent=isFinal?'Generating your tailored CV…':'Analyzing your answers…'; document.getElementById('progress-msg').textContent=isFinal?'Building your single-page CV with optimized keywords.':'Identifying which gaps are now covered.'; document.getElementById('progress-spinner').style.display='flex'; document.getElementById('progress-stats').style.display='none'; showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
+      document.getElementById('progress-icon').textContent=isFinal?'✨':'📊'; document.getElementById('progress-title').textContent=isFinal?'Generating your tailored CV…':'Analyzing your answers…'; document.getElementById('progress-msg').textContent=isFinal?'Building your single-page CV with optimized keywords.':'Identifying which gaps are now covered.'; document.getElementById('progress-spinner').style.display='flex'; document.getElementById('progress-stats').style.display='none'; document.getElementById('progress-wait').textContent=isFinal?'This can take up to one minute, please don\'t leave the page.':'This can take 20–30 seconds, please don\'t leave the page.'; showPanel('progress'); window.scrollTo({top:0,behavior:'smooth'});
       try {
         const res=await fetch('/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,answers})}); const data=await res.json();
         if(data.error){alert(data.error);showPanel('round');document.getElementById('btn-submit').disabled=false;return;}
+        document.getElementById('progress-wait').textContent='';
         if(data.round==='final') {
           document.getElementById('progress-spinner').style.display='none'; document.getElementById('progress-icon').textContent='✅'; document.getElementById('progress-title').textContent='CV generated successfully!'; document.getElementById('progress-msg').textContent='Preparing your download…';
           downloadName=data.download_name||'tailored_cv.docx';
@@ -560,7 +534,8 @@
           document.getElementById('progress-stats').style.display='flex';
           document.getElementById('progress-stats').innerHTML=`<div class="progress-stat"><div class="stat-num green">${closed}</div><div class="stat-label">Gaps closed</div></div><div class="progress-stat"><div class="stat-num amber">${curr.gaps}</div><div class="stat-label">Remaining</div></div><div class="progress-stat"><div class="stat-num green">${curr.strengths}</div><div class="stat-label">Strengths</div></div>`;
           prevAnalysis=data.analysis; currentRound=data.round;
-          setTimeout(()=>{showProgressWithSummary(data);},2500);
+          pendingRoundData=data;
+          setTimeout(()=>{goToQuestions();},2500);
         }
       } catch(err){alert('Connection error.');showPanel('round');document.getElementById('btn-submit').disabled=false;}
     }
@@ -608,7 +583,7 @@
     async function retryNewRole() {
       const jd=document.getElementById('retry-jd').value.trim(); if(!jd){alert('Please paste a job description.');return;}
       document.getElementById('loading-retry').classList.add('show');
-      try{const res=await fetch('/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,jd})}); const data=await res.json(); document.getElementById('loading-retry').classList.remove('show'); if(data.error){alert(data.error);return;} sessionId=data.session_id;currentRound=1;prevAnalysis=data.analysis;document.getElementById('retry-jd').value='';showProgressWithSummary(data);}catch(err){alert('Connection error.');document.getElementById('loading-retry').classList.remove('show');}
+      try{const res=await fetch('/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,jd})}); const data=await res.json(); document.getElementById('loading-retry').classList.remove('show'); if(data.error){alert(data.error);return;} sessionId=data.session_id;currentRound=1;prevAnalysis=data.analysis;document.getElementById('retry-jd').value='';pendingRoundData=data;goToQuestions();}catch(err){alert('Connection error.');document.getElementById('loading-retry').classList.remove('show');}
     }
 
     async function payAndDownload() {
