@@ -5,6 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Unlock Your CV</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔓</text></svg>">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-10887114358"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'AW-10887114358');
+  </script>
+  <!-- Event snippet for conversion tracking -->
+  <script>
+    gtag('event', 'conversion', {'send_to': 'AW-10887114358/oqiXCLzi-t8DEPbcsMco'});
+  </script>
+  <script>
+    function gtag_report_conversion(url) {
+      var callback = function () {
+        if (typeof(url) != 'undefined') { window.location = url; }
+      };
+      gtag('event', 'conversion', {
+        'send_to': 'AW-10887114358/oqiXCLzi-t8DEPbcsMco',
+        'event_callback': callback
+      });
+      return false;
+    }
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -332,7 +356,7 @@
           <span id="jd-detect-text"></span>
         </div>
       </div>
-      <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="startAnalysis()">Analyze &amp; Start →</button></div>
+      <div class="actions"><button class="btn btn-primary" id="btn-start" onclick="gtag_report_conversion(); startAnalysis()">Analyze &amp; Start →</button></div>
     </div>
 
     <!-- Progress / Loading -->
@@ -354,7 +378,7 @@
         <span class="round-focus" id="round-focus"></span>
       </div>
       <div id="questions-container"></div>
-      <div class="actions"><button class="btn btn-primary" id="btn-submit" disabled onclick="submitAnswers()">Submit Answers →</button></div>
+      <div class="actions"><button class="btn btn-primary" id="btn-submit" disabled onclick="gtag_report_conversion(); submitAnswers()">Submit Answers →</button></div>
     </div>
 
     <!-- Final -->
@@ -382,7 +406,7 @@
 
       <!-- Download button 1 -->
       <div class="actions cta-download">
-        <button class="btn btn-download" onclick="payAndDownload()" id="btn-pay" style="font-size:16px; padding:16px 44px;"><span id="btn-download-text">↓ Download for €3.99</span></button>
+        <button class="btn btn-download" onclick="gtag_report_conversion(); payAndDownload()" id="btn-pay" style="font-size:16px; padding:16px 44px;"><span id="btn-download-text">↓ Download for €3.99</span></button>
         <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:16px;"><span>🔒 Secure payment via Stripe</span><span>💳 Cards, Google Pay, Apple Pay</span></div>
       </div>
 
