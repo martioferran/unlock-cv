@@ -44,6 +44,13 @@ MODEL_FINAL = "claude-opus-4-6"
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+# Check LibreOffice at startup
+_soffice_path = find_libreoffice()
+if _soffice_path:
+    print(f"[CV Tailor] LibreOffice found at: {_soffice_path}")
+else:
+    print("[CV Tailor] WARNING: LibreOffice not found — PDF previews will be unavailable")
+
 # Force HTTPS in production
 @app.before_request
 def force_https():
@@ -58,6 +65,33 @@ sessions = {}
 # PDF CONVERSION (platform-aware)
 # ---------------------------------------------------------------------------
 
+def find_libreoffice():
+    """Find the LibreOffice/soffice binary, including Nix store paths on Railway."""
+    import shutil
+    # Check standard paths first
+    for name in ["libreoffice", "soffice"]:
+        path = shutil.which(name)
+        if path:
+            print(f"[CV Tailor] Found {name} via shutil.which: {path}")
+            return path
+    # Try subprocess which (works on Railway after nixPkgs install)
+    try:
+        result = subprocess.run(["which", "soffice"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0 and result.stdout.strip():
+            path = result.stdout.strip()
+            print(f"[CV Tailor] Found soffice via which command: {path}")
+            return path
+    except Exception:
+        pass
+    # Search Nix store (Railway installs here)
+    nix_store = Path("/nix/store")
+    if nix_store.exists():
+        for p in sorted(nix_store.glob("**/bin/soffice")):
+            print(f"[CV Tailor] Found soffice in Nix store: {p}")
+            return str(p)
+    return None
+
+
 def convert_docx_to_pdf(docx_path, pdf_path):
     """Convert .docx to .pdf using Word (Windows) or LibreOffice (Linux/Mac)."""
     if platform.system() == "Windows":
@@ -70,15 +104,25 @@ def convert_docx_to_pdf(docx_path, pdf_path):
             return True
         except ImportError:
             print("[CV Tailor] docx2pdf not available, trying LibreOffice...")
-    
+
     # Linux / Mac / fallback: use LibreOffice headless
+    soffice = _soffice_path or find_libreoffice()
+    if not soffice:
+        print("[CV Tailor] LibreOffice not found anywhere.")
+        return False
+
     try:
         output_dir = str(Path(pdf_path).parent)
+        print(f"[CV Tailor] Converting with LibreOffice: {soffice}")
+        print(f"[CV Tailor] Input: {docx_path}, Output dir: {output_dir}")
         result = subprocess.run(
-            ["libreoffice", "--headless", "--convert-to", "pdf",
+            [soffice, "--headless", "--norestore", "--convert-to", "pdf",
              "--outdir", output_dir, str(docx_path)],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=60
         )
+        print(f"[CV Tailor] LibreOffice stdout: {result.stdout}")
+        if result.returncode != 0:
+            print(f"[CV Tailor] LibreOffice stderr: {result.stderr}")
         # LibreOffice names the output based on input filename
         expected_pdf = Path(output_dir) / (Path(docx_path).stem + ".pdf")
         if expected_pdf.exists() and str(expected_pdf) != pdf_path:
@@ -441,6 +485,24 @@ def cv_json_to_text(cv_data):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/health")
+def health():
+    """Diagnostic endpoint to check LibreOffice status."""
+    soffice = find_libreoffice()
+    info = {
+        "soffice_path": soffice,
+        "soffice_found": soffice is not None,
+        "platform": platform.system(),
+    }
+    if soffice:
+        try:
+            result = subprocess.run([soffice, "--version"], capture_output=True, text=True, timeout=10)
+            info["soffice_version"] = result.stdout.strip()
+        except Exception as e:
+            info["soffice_version_error"] = str(e)
+    return jsonify(info)
 
 
 @app.route("/start", methods=["POST"])
