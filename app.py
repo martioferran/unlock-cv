@@ -44,13 +44,6 @@ MODEL_FINAL = "claude-opus-4-6"
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Check LibreOffice at startup
-_soffice_path = find_libreoffice()
-if _soffice_path:
-    print(f"[CV Tailor] LibreOffice found at: {_soffice_path}")
-else:
-    print("[CV Tailor] WARNING: LibreOffice not found — PDF previews will be unavailable")
-
 # Force HTTPS in production
 @app.before_request
 def force_https():
@@ -131,6 +124,14 @@ def convert_docx_to_pdf(docx_path, pdf_path):
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
         print(f"[CV Tailor] LibreOffice conversion failed: {e}")
         return False
+
+
+# Check LibreOffice at startup
+_soffice_path = find_libreoffice()
+if _soffice_path:
+    print(f"[CV Tailor] LibreOffice found at: {_soffice_path}")
+else:
+    print("[CV Tailor] WARNING: LibreOffice not found — PDF previews will be unavailable")
 
 
 # ---------------------------------------------------------------------------
